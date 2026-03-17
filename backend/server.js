@@ -17,7 +17,7 @@ app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
 
 // Serve static files
-app.use(express.static('../static'));
+app.use(express.static('static'));
 
 app.use(session({
   secret: 'your-secret-key',
