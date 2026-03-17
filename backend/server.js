@@ -27,8 +27,7 @@ app.use(session({
 
 // EJS setup
 app.set('view engine', 'ejs');
-app.set('views', './templates');
-
+app.set('views', './backend/templates');
 
 // LOGIN PAGE
 app.get("/login", (req, res) => {
