@@ -2,62 +2,194 @@ const express = require('express');
 const session = require('express-session');
 const bodyParser = require('body-parser');
 const bcrypt = require('bcrypt');
+const mongoose = require('mongoose');
 const User = require('./models/user');
 
 const app = express();
 
+// MongoDB Connection
+mongoose.connect("mongodb+srv://pranavsoma2912_db_user:SpNf6gaC46mAL7Zf@cluster0.x887ggp.mongodb.net/nexuschatbot?retryWrites=true&w=majority")
+.then(()=> console.log("MongoDB Connected"))
+.catch(err => console.log(err));
+
 // Middleware
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
-app.use(
-  session({
-    secret: 'your-secret-key',
-    resave: false,
-    saveUninitialized: true,
-    store: new session.MemoryStore(), // You can use other session stores like MongoDB or Redis
-  })
-);
 
-// Routes
-app.get('/login', (req, res) => {
-  res.render('login');
-});
+// Serve static files
+app.use(express.static('../static'));
 
-app.post('/login', async (req, res) => {
-  const { email, password } = req.body;
+app.use(session({
+  secret: 'your-secret-key',
+  resave: false,
+  saveUninitialized: true
+}));
 
-  try {
-    const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(401).json({ error: 'Invalid email or password' });
-    }
-
-    const passwordMatch = await bcrypt.compare(password, user.password);
-    if (!passwordMatch) {
-      return res.status(401).json({ error: 'Invalid email or password' });
-    }
-
-    req.session.user = user;
-    return res.json({ message: 'Login successful' });
-  } catch (error) {
-    return res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-app.get('/profile', (req, res) => {
-  if (req.session.user) {
-    return res.json({ user: req.session.user });
-  }
-  return res.status(401).json({ error: 'Unauthorized' });
-});
-
-// Other routes...
-
-// Set up view engine
+// EJS setup
 app.set('view engine', 'ejs');
 app.set('views', './templates');
 
-// Start the server
+
+// LOGIN PAGE
+app.get("/login", (req, res) => {
+  res.render("login");
+});
+
+// SIGNUP PAGE
+app.get("/signup", (req, res) => {
+  res.render("signup");
+});
+
+
+// LOGIN ROUTE
+app.post('/login', async (req, res) => {
+
+  const { email, password } = req.body;
+
+  try {
+
+    const user = await User.findOne({ email });
+
+    if (!user) {
+      return res.send("Invalid email or password");
+    }
+
+    const passwordMatch = await bcrypt.compare(password, user.password);
+
+    if (!passwordMatch) {
+      return res.send("Invalid email or password");
+    }
+
+    req.session.user = user;
+
+    res.redirect("/home");
+
+  } catch (error) {
+
+    res.status(500).send("Server error");
+
+  }
+
+});
+
+
+// SIGNUP ROUTE
+app.post('/signup', async (req, res) => {
+
+  const { email, password } = req.body;
+
+  try {
+
+    const existingUser = await User.findOne({ email });
+
+    if (existingUser) {
+      return res.send("User already exists");
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const newUser = new User({
+      email,
+      password: hashedPassword
+    });
+
+    await newUser.save();
+
+    res.redirect("/login");
+
+  } catch (error) {
+
+    res.status(500).send("Server error");
+
+  }
+
+});
+
+
+// LOGOUT
+app.get('/logout', (req, res) => {
+
+  req.session.destroy(() => {
+    res.redirect("/login");
+  });
+
+});
+
+// Helper function to get auth data
+const getAuthData = (req) => {
+  if (req.session.user) {
+    return {
+      username: req.session.user.email.split('@')[0],
+      isLoggedIn: true
+    };
+  } else {
+    return {
+      username: null,
+      isLoggedIn: false
+    };
+  }
+};
+
+// HOME PAGE (with authentication)
+app.get("/home", (req, res) => {
+  const authData = getAuthData(req);
+  if (authData.isLoggedIn) {
+    res.render("home", authData);
+  } else {
+    res.redirect("/login");
+  }
+});
+
+// ROOT PAGE
+app.get("/", (req, res) => {
+  const authData = getAuthData(req);
+  res.render("home", authData);
+});
+
+app.get("/customize_upload", (req, res) => {
+  const authData = getAuthData(req);
+  res.render("customize_upload", authData);
+});
+
+app.get("/choose_model", (req, res) => {
+  const authData = getAuthData(req);
+  res.render("choose_model", authData);
+});
+
+app.get("/customize_chatbot", (req, res) => {
+  const authData = getAuthData(req);
+  res.render("customize_chatbot", authData);
+});
+
+app.get("/bot_builder", (req, res) => {
+  const authData = getAuthData(req);
+  res.render("bot_builder", authData);
+});
+
+app.get("/templates", (req, res) => {
+  const authData = getAuthData(req);
+  res.render("templates", authData);
+});
+
+app.get("/my_bots", (req, res) => {
+  const authData = getAuthData(req);
+  res.render("my_bots", authData);
+});
+
+app.get("/assignments", (req, res) => {
+  const authData = getAuthData(req);
+  res.render("assignments", authData);
+});
+
+app.get("/assignment/:id", (req, res) => {
+  const authData = getAuthData(req);
+  res.render("assignment_detail", { 
+    assignment_id: req.params.id,
+    ...authData 
+  });
+});
+
+// SERVER
 app.listen(3000, () => {
-  console.log('Server is running on port 3000');
+  console.log("Server running on http://localhost:3000");
 });
